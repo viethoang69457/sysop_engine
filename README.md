@@ -38,14 +38,14 @@ dashboard ,RESTful API endpoints.
 │   Ed25519 SSH Keys | Password Auth Disabled | No Root   │
 └─────────────────────────────────────────────────────────┘
 
-## ⚡ Core Features
+## **⚡ Core Features**
 
 - **Web Dashboard & REST API**: Real-time SLA/uptime monitoring (Chart.js) powered by a centralized FastAPI gateway.
 - **Agentless Telemetry Collection**: Gathers node metrics (CPU, RAM, Disk, latency) with zero agent overhead via SSH (`metrics_collector.py`) and a native C-socket probe (`net_probe.c`).
 - **Automated Disaster Recovery**: Zero-downtime LVM snapshots and remote Rsync synchronization managed by `backup_engine.py`.
 - **Threat Alerting Pipeline**: Real-time SSH brute-force detection—ingesting logs (`data_ingestor.py`), analyzing threat patterns (`log_aggregator.py`), and dispatching instant Telegram alerts (`notifier.py`).
 
-## 🛠️ Detailed Component Breakdown
+## **🛠️ Detailed Component Breakdown**
 
 The system is designed with a modular, decoupled architecture, categorizing tasks into dedicated pipelines:
 
@@ -66,6 +66,52 @@ The system is designed with a modular, decoupled architecture, categorizing task
 ### 4. Orchestration & Disaster Recovery
 * **`sysop_orchestrator.py`**: Master workflow scheduler executing the automated collection cycle in sequence (`net_probe` ➔ `metrics_collector` ➔ `log_aggregator` ➔ `data_ingestor` ➔ `notifier`).
 * **`backup_engine.py`**: Automated backup and disaster recovery module leveraging **LVM snapshots** and **Rsync** to replicate secondary node storage back to the primary node with zero downtime.
+
+## **🔄 Data Execution Flow (RESTful API Coordination)**
+
+The system orchestrates data retrieval and execution through an asynchronous API gateway communicating with independent backend workers.
+
+
+       [ Dark Theme Web Dashboard ]
+                    │
+                    │ API Request (GET/POST)
+                    ▼
+           [ RESTful API Gateway ] ◄─────────────────────────┐
+                (FastAPI)                                    │
+                    │                                        │
+        ┌───────────┴───────────┐                            │
+        │ BackgroundTasks       │ BackgroundTasks            │
+        ▼                       ▼                            │
+[ sysop_orchestrator ]     [ backup_engine.py ]              │
+│       │                       │                            │ Read Data
+│       │ Full Pipeline         │ LVM Snapshot & Rsync       │ (logs, metrics,
+│       ▼                       ▼                            │  backup history)
+│ [ Target Nodes ]        [ Target Nodes ]                   │
+│       │                       │                            │
+│       │ Insert Data           │ Backup History             │
+│       └───────────┬───────────┘                            │
+│                   ▼                                        │
+│          [ SQLite Database ] ──────────────────────────────┘
+│           (sysop_engine.db)
+▼
+[ Telegram Bot ] ───► "SSH BRUTE-FORCE Detected! IP: 192.168.x.x"
+
+## **🧰 Tech Stack & Tooling**
+
+- Backend & API: Python (FastAPI, Uvicorn)
+- System & Low-Level: C (GCC, POSIX Sockets)
+- Database: SQLite3 (Embedded)
+- Infrastructure & OS: Linux, Systemd, Bash, OpenSSH,Python
+- Disaster Recovery: LVM (Logical Volume Manager), Rsync
+- UI & Notifications: Chart.js, Telegram Bot API
+
+## 🔒 Security & Data Lifecycle
+
+- Zero Hardcoded Secrets — Sensitive credentials (Telegram Bot tokens, SSH credentials) are strictly managed via environment variables (`.env`).
+- Runtime Data Isolation — All dynamic runtime files (`sysop-engine.db`, `*.json`) and backup artifacts are isolated via `.gitignore` to prevent credential and state leakage.
+
+
+
 
 
 
