@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SysOps Engine - Advanced Control Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        cardbg: '#151e32',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-darkbg text-slate-200 min-h-screen p-6 font-sans">
+
+    <!-- Header & Interactive Control Panel -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 mb-6 border-b border-slate-800 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-sky-400 tracking-wider">🚀 SYSOPS ENGINE CONTROL CENTER</h1>
+            <p class="text-xs text-slate-400">Agentless Telemetry, Disaster Recovery & Real-time Threat Intelligence</p>
+        </div>
+        
+        <!-- CONTROL BUTTONS -->
+        <div class="flex items-center space-x-3">
+            <button onclick="triggerAction('/api/v1/trigger/pipeline', this)" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-sky-600/30 flex items-center gap-1.5 active:scale-95">
+                ⚡ Run Pipeline Now
+            </button>
+            <button onclick="triggerAction('/api/v1/trigger/backup', this)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 active:scale-95">
+                💾 Trigger LVM Backup
+            </button>
+            <span id="last-sync" class="text-xs font-mono text-slate-500 pl-2">Syncing...</span>
+        </div>
+    </header>
+
+    <main class="space-y-6">
+
+        <!-- 1. 24H UPTIME STATS CARDS -->
+        <section>
+            <h2 class="text-sm font-bold uppercase text-slate-400 tracking-wider mb-3">⏱️ 24-Hour Availability & SLA Tracker</h2>
+            <div id="uptime-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 bg-cardbg rounded-xl border border-slate-800 animate-pulse text-slate-500">Calculating 24h SLA...</div>
+            </div>
+        </section>
+
+        <!-- 2. LIVE NODE TELEMETRIES CARDS -->
+        <section>
+            <h2 class="text-sm font-bold uppercase text-slate-400 tracking-wider mb-3">🖥️ Live System Performance</h2>
+            <div id="nodes-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 bg-cardbg rounded-xl border border-slate-800 animate-pulse text-slate-500">Loading Nodes...</div>
+            </div>
+        </section>
+
+        <!-- 3. REAL-TIME TIME-SERIES CHARTS -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-cardbg rounded-xl border border-slate-800 p-5 shadow-xl">
+                <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider mb-3">📡 Network Latency Trend (C-Socket µs -> ms)</h3>
+                <canvas id="latencyChart" height="150"></canvas>
+            </div>
+            <div class="bg-cardbg rounded-xl border border-slate-800 p-5 shadow-xl">
+                <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">⚡ CPU Load Average Trend (1m)</h3>
+                <canvas id="cpuChart" height="150"></canvas>
+            </div>
+        </section>
+
+        <!-- 4. TABLES SECTION -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-cardbg rounded-xl border border-slate-800 p-5">
+                <h3 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-3">🛡️ Recent Security Threats & SSH Attacks</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 text-slate-500 border-b border-slate-800">
+                            <tr>
+                                <th class="p-2">Node</th>
+                                <th class="p-2">Attacks</th>
+                                <th class="p-2">Attacker IP</th>
+                                <th class="p-2">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="security-table-body" class="divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-cardbg rounded-xl border border-slate-800 p-5">
+                <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">💾 LVM Disaster Recovery History</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 text-slate-500 border-b border-slate-800">
+                            <tr>
+                                <th class="p-2">Node</th>
+                                <th class="p-2">Status</th>
+                                <th class="p-2">Backup Vault Path</th>
+                                <th class="p-2">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backup-table-body" class="divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        let latencyChart, cpuChart;
+
+        // Hàm gọi POST Trigger cho các nút bấm
+        async function triggerAction(endpoint, btnElement) {
+            const originalText = btnElement.innerText;
+            btnElement.disabled = true;
+            btnElement.innerText = '⏳ Executing...';
+            btnElement.classList.add('opacity-50');
+
+            try {
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                alert('SUCCESS: ' + data.message);
+            } catch (err) {
+                alert('ERROR: Failed to trigger action -> ' + err);
+            } finally {
+                btnElement.disabled = false;
+                btnElement.innerText = originalText;
+                btnElement.classList.remove('opacity-50');
+                setTimeout(refreshAll, 1500); // Refresh lại giao diện sau 1.5s
+            }
+        }
+
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } }
+                },
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }
+            };
+
+            const ctxLatency = document.getElementById('latencyChart').getContext('2d');
+            latencyChart = new Chart(ctxLatency, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+
+            const ctxCpu = document.getElementById('cpuChart').getContext('2d');
+            cpuChart = new Chart(ctxCpu, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+        }
+
+        async function update24hUptime() {
+            try {
+                const res = await fetch('/api/v1/metrics/uptime');
+                const data = await res.json();
+                const container = document.getElementById('uptime-container');
+                container.innerHTML = '';
+
+                data.forEach(item => {
+                    const pct = item.uptime_percentage;
+                    const barColor = pct >= 99.0 ? 'bg-emerald-500' : (pct >= 90.0 ? 'bg-amber-500' : 'bg-rose-500');
+                    
+                    container.innerHTML += `
+                        <div class="bg-cardbg rounded-xl border border-slate-800 p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-white text-sm">${item.node_name.toUpperCase()} (${item.target_ip})</span>
+                                <span class="font-mono font-bold text-sm ${pct >= 99.0 ? 'text-emerald-400' : 'text-rose-400'}">${pct}% Uptime</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                                <div class="${barColor} h-2.5 rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                            <div class="flex justify-between items-center mt-2 text-[10px] text-slate-500">
+                                <span>Total Health Checks: ${item.total_checks}</span>
+                                <span>Successful: ${item.up_checks}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) { console.error('Uptime fetch error:', err); }
+        }
+
+        async function updateLiveMetrics() {
+            try {
+                const res = await fetch('/api/v1/metrics/latest');
+                const nodes = await res.json();
+                const container = document.getElementById('nodes-container');
+                container.innerHTML = '';
+
+                nodes.forEach(node => {
+                    const isUp = node.status === 'UP';
+                    container.innerHTML += `
+                        <div class="bg-cardbg rounded-xl border border-slate-800 p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-base text-white">${node.node_name.toUpperCase()}</span>
+                                <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full ${isUp ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}">${node.status}</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2 text-center">
+                                <div class="bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                                    <div class="text-[10px] text-slate-500">Latency</div>
+                                    <div class="text-xs font-bold text-sky-400 font-mono">${(node.latency_us / 1000).toFixed(2)} ms</div>
+                                </div>
+                                <div class="bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                                    <div class="text-[10px] text-slate-500">CPU Load</div>
+                                    <div class="text-xs font-bold text-amber-400 font-mono">${node.cpu_load}</div>
+                                </div>
+                                <div class="bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                                    <div class="text-[10px] text-slate-500">RAM Usage</div>
+                                    <div class="text-xs font-bold text-indigo-400 font-mono">${node.ram_usage}</div>
+                                </div>
+                                <div class="bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                                    <div class="text-[10px] text-slate-500">Disk</div>
+                                    <div class="text-xs font-bold text-emerald-400 font-mono">${node.disk_usage_percent}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('last-sync').innerText = 'Sync: ' + new Date().toLocaleTimeString();
+            } catch (err) { console.error('Metrics fetch error:', err); }
+        }
+
+        async function updateChartData() {
+            try {
+                const res = await fetch('/api/v1/metrics/history');
+                const history = await res.json();
+
+                const timeLabels = [...new Set(history.map(item => item.time_label))];
+                const nodes = [...new Set(history.map(item => item.node_name))];
+
+                const latencyDatasets = nodes.map((node, idx) => {
+                    const colors = ['#38bdf8', '#fbbf24'];
+                    return {
+                        label: node.toUpperCase() + ' Latency (ms)',
+                        data: history.filter(h => h.node_name === node).map(h => h.latency_us / 1000),
+                        borderColor: colors[idx % colors.length],
+                        tension: 0.3,
+                        fill: false
+                    };
+                });
+
+                const cpuDatasets = nodes.map((node, idx) => {
+                    const colors = ['#f43f5e', '#a855f7'];
+                    return {
+                        label: node.toUpperCase() + ' CPU Load',
+                        data: history.filter(h => h.node_name === node).map(h => h.cpu_load),
+                        borderColor: colors[idx % colors.length],
+                        tension: 0.3,
+                        fill: false
+                    };
+                });
+
+                latencyChart.data.labels = timeLabels;
+                latencyChart.data.datasets = latencyDatasets;
+                latencyChart.update();
+
+                cpuChart.data.labels = timeLabels;
+                cpuChart.data.datasets = cpuDatasets;
+                cpuChart.update();
+            } catch (err) { console.error('Chart fetch error:', err); }
+        }
+
+        async function updateTables() {
+            try {
+                const resSec = await fetch('/api/v1/security/alerts');
+                const alerts = await resSec.json();
+                const secBody = document.getElementById('security-table-body');
+                secBody.innerHTML = '';
+                alerts.forEach(a => {
+                    secBody.innerHTML += `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="p-2 font-bold text-slate-300">${a.node_name}</td>
+                            <td class="p-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${a.ssh_failed_count > 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800 text-slate-400'}">${a.ssh_failed_count}</span></td>
+                            <td class="p-2 font-mono text-rose-300">${a.attacker_ips || 'None'}</td>
+                            <td class="p-2 text-slate-500">${a.created_at}</td>
+                        </tr>
+                    `;
+                });
+
+                const resBk = await fetch('/api/v1/backups/history');
+                const backups = await resBk.json();
+                const bkBody = document.getElementById('backup-table-body');
+                bkBody.innerHTML = '';
+                backups.forEach(b => {
+                    bkBody.innerHTML += `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="p-2 font-bold text-slate-300">${b.node_name}</td>
+                            <td class="p-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${b.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${b.status}</span></td>
+                            <td class="p-2 font-mono text-[10px] text-slate-400">${b.backup_path}</td>
+                            <td class="p-2 text-slate-500">${b.created_at}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) { console.error('Tables fetch error:', err); }
+        }
+
+        function refreshAll() {
+            update24hUptime();
+            updateLiveMetrics();
+            updateChartData();
+            updateTables();
+        }
+
+        window.onload = () => {
+            initCharts();
+            refreshAll();
+            setInterval(refreshAll, 5000);
+        };
+    </script>
+</body>
+</html>
