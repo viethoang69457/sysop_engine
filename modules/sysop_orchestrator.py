@@ -114,4 +114,4 @@ def execute_full_pipeline():
 if __name__ == "__main__":
     
   
-    execute_full_pipeline(run_backup=with_backup)
+    execute_full_pipeline()
