@@ -7,8 +7,7 @@ Mục đích: Điều phối toàn bộ vòng đời vận hành hạ tầng (Pi
 Chuỗi luồng (Execution Order):
   1. Metrics Collector & Net Probe (C Socket + SSH System Metrics)
   2. Log Aggregator (Journalctl + Python Regex Log Analysis)
-  3. LVM Backup Engine (Snapshot Zero-Downtime + Rsync over SSH)
-  4. Data Ingestor & Alert Trigger (SQLite Persistence + Telegram Alerts)
+  3. Data Ingestor & Alert Trigger (SQLite Persistence + Telegram Alerts)
 ===============================================================================
 """
 
@@ -68,7 +67,7 @@ def run_step(step_number, step_name, script_name, extra_args=None):
         print(f"  [❌ EXCEPTION] Lỗi không xác định khi chạy {step_name}: {str(e)}")
         return False
 
-def execute_full_pipeline(run_backup=True):
+def execute_full_pipeline():
     start_time = time.time()
     print_banner()
     print("=" * 75)
@@ -93,20 +92,10 @@ def execute_full_pipeline(run_backup=True):
         script_name="log_aggregator.py"
     )
 
-    # -------------------------------------------------------------------------
-    # BƯỚC 3: Disaster Recovery Backup Engine (LVM Snapshot + Rsync)
-    # -------------------------------------------------------------------------
-    if run_backup:
-        step3_ok = run_step(
-            step_number=3,
-            step_name="Disaster Recovery Engine (LVM Snapshot + Rsync)",
-            script_name="backup_engine.py"
-        )
-    else:
-        print("\n[INFO] Bỏ qua Bước 3 (LVM Backup) theo tham số người dùng.")
+    
 
     # -------------------------------------------------------------------------
-    # BƯỚC 4: Data Ingestor & Real-time Telegram Alert Notifier
+    # BƯỚC 3: Data Ingestor & Real-time Telegram Alert Notifier
     # -------------------------------------------------------------------------
     step4_ok = run_step(
         step_number=4,
@@ -123,9 +112,6 @@ def execute_full_pipeline(run_backup=True):
     print("=" * 75 + "\n")
 
 if __name__ == "__main__":
-    # Cú pháp chạy:
-    # python3 sysop_orchestrator.py            -> Chạy full pipeline (Bao gồm cả LVM Backup)
-    # python3 sysop_orchestrator.py --no-backup -> Chỉ cào Metrics + Logs + Ingest SQLite (Không backup)
     
-    with_backup = "--no-backup" not in sys.argv
+  
     execute_full_pipeline(run_backup=with_backup)
