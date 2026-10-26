@@ -180,30 +180,41 @@ pip install fastapi uvicorn requests python-dotenv
 echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" > ~/sysop_engine/.env
 echo "TELEGRAM_CHAT_ID=your_chat_id_here" >> ~/sysop_engine/.env
 
-Step 4: Systemd Service Configuration & Activation (sysop.service)
-1.Create Systemd Service configuration at /etc/systemd/system/sysop.service:
-sudo bash -c 'cat <<EOF> /etc/systemd/system/sysop.service
+### Step 4: Systemd Service Configuration & Activation
+
+1. Create Systemd service file:
+
+```bash
+SERVICE_USER=$(whoami)
+
+sudo bash -c "cat <<EOF > /etc/systemd/system/sysop.service
 [Unit]
-Description=SysOps Engine Monitoring & Core Daemon
+Description=SysOps Engine FastAPI Web Dashboard & REST Gateway
 After=network.target
 
 [Service]
 Type=simple
-User='$USER'
-WorkingDirectory=/home/'$USER'/sysop_engine
-EnvironmentFile=/home/'$USER'/sysop_engine/modules/.env
-ExecStart=/home/'$USER'/sysop_engine/venv/bin/python3 -m modules.api_gateway
+User=${SERVICE_USER}
+Group=${SERVICE_USER}
+WorkingDirectory=/home/${SERVICE_USER}/sysop_engine/modules
+EnvironmentFile=/home/${SERVICE_USER}/sysop_engine/modules/.env
+ExecStart=/home/${SERVICE_USER}/sysop_engine/venv/bin/uvicorn api_gateway:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
-RestartSec=5
+RestartSec=3
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
-EOF'
+EOF"
+```
 
-2. Enable and start Daemon Service:
+2. Enable and start the daemon:
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now sysop.service
 sudo systemctl status sysop.service
+```
 🎉 SysOps Engine deployment completed successfully!
 
 
