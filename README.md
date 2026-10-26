@@ -193,13 +193,7 @@ User='$USER'
 WorkingDirectory=/home/'$USER'/sysop_engine
 EnvironmentFile=/home/'$USER'/sysop_engine/modules/.env
 ExecStart=/home/'$USER'/sysop_engine/venv/bin/python3 -m modules.api_gateway
-Restart=
-
-https://github.com/user-attachments/assets/e4ebac9d-6e34-4753-9aea-03de7285b368
-
-
-
-always
+Restart=always
 RestartSec=5
 
 [Install]
