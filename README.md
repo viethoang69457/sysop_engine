@@ -8,7 +8,7 @@ dashboard ,RESTful API endpoints.
 
 `SysOps Engine` follows a strict **4-Tier Layered Architecture**, separating the presentation UI from the control plane, orchestration logic, and target infrastructure.
 
-```text
+
 ┌─────────────────────────────────────────────────────────┐
 │                 1. PRESENTATION LAYER                   │
 │         TailwindCSS | Chart.js | Sync Polling (5s)      │
@@ -194,6 +194,41 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now sysop.service
 sudo systemctl status sysop.service
 🎉 SysOps Engine deployment completed successfully!
+
+
+## 📡 API Endpoints Reference
+
+> FastAPI Gateway RESTful routes for dashboard visualization, background job orchestration, and telemetry retrieval.
+
+### 1. Web Dashboard
+| Method | Endpoint | Description | Payload / Query | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| **GET** | `/` | Serves the main web dashboard interface | None | `templates/index.html` |
+
+### 2. Control & Orchestration (Background Jobs)
+| Method | Endpoint | Description | Payload / Query | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/api/v1/trigger/pipeline` | Triggers background metrics & log collection pipeline | None | `{"status": "ACCEPTED", ...}` |
+| **POST** | `/api/v1/trigger/backup` | Triggers background LVM snapshot emergency backup | None | `{"status": "ACCEPTED", ...}` |
+
+### 3. Telemetry & Data Retrieval
+| Method | Endpoint | Description | Payload / Query | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| **GET** | `/api/v1/health` | Returns cluster status & monitored nodes count | None | `{"cluster_status": "HEALTHY", ...}` |
+| **GET** | `/api/v1/metrics/latest` | Fetches latest metric records for all nodes | None | JSON Array (Latest node metrics) |
+| **GET** | `/api/v1/metrics/uptime` | Calculates 24-hour uptime percentage per node | None | JSON Array (`uptime_percentage`, etc.) |
+| **GET** | `/api/v1/metrics/history` | Fetches last 60 metric records for charting | None | JSON Array (`latency_us`, `cpu_load`, `time_label`) |
+| **GET** | `/api/v1/security/alerts` | Fetches recent security events (last 20 logs) | None | JSON Array (Security event logs) |
+| **GET** | `/api/v1/backups/history` | Fetches LVM backup history (last 10 records) | None | JSON Array (Backup execution logs) |
+
+
+
+https://github.com/user-attachments/assets/5b21fab2-c54e-4a13-8635-fe5205354250
+
+
+
+
+
 
 
 
