@@ -71,39 +71,34 @@ The system is designed with a modular, decoupled architecture, categorizing task
 * **`sysop_orchestrator.py`**: Master workflow scheduler executing the automated collection cycle in sequence (`net_probe` ➔ `metrics_collector` ➔ `log_aggregator` ➔ `data_ingestor` ➔ `notifier`).
 * **`backup_engine.py`**: Automated backup and disaster recovery module leveraging **LVM snapshots** and **Rsync** to replicate secondary node storage back to the primary node with zero downtime.
 
-## 🛠 Architectural Overview: 4-Tier Layered Design
+## 🔄 Data Execution Flow (RESTful API Coordination)
 
-`SysOps Engine` follows a strict **4-Tier Layered Architecture**...
+The system orchestrates data retrieval...
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                 1. PRESENTATION LAYER                   │
-│         TailwindCSS | Chart.js | Sync Polling (5s)      │
-└───────────────────────────┬─────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                 2. CONTROL PLANE CORE                   │
-│     FastAPI RESTful | Uvicorn (2 Workers) | Systemd     │
-│          Background Tasks (0.1s Execution Rate)         │
-└───────────────────────────┬─────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│              3. ORCHESTRATION & STORAGE                 │
-│                                                         │
-│  [ Master Orchestrator ]       [ Backup Vault Engine ]  │
-│  (sysop_orchestrator.py)       (backup_engine.py)       │
-│             │                           │               │
-│             └─────────────┬─────────────┘               │
-│                           ▼                             │
-│               [ SQLite Database (3NF) ]                 │
-│           (sysop_engine.db) + Telegram Alerts           │
-└───────────────────────────┬─────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│               4. TARGET INFRASTRUCTURE                  │
-│    Ubuntu Server 22.04 LTS (Strict Agentless Mode)      │
-│   Ed25519 SSH Keys | Password Auth Disabled | No Root   │
-└─────────────────────────────────────────────────────────┘
+       [ Dark Theme Web Dashboard ]
+                    │
+                    │ API Request (GET/POST)
+                    ▼
+           [ RESTful API Gateway ] ◄─────────────────────────┐
+                (FastAPI)                                    │
+                    │                                        │
+        ┌───────────┴───────────┐                            │
+        │ BackgroundTasks       │ BackgroundTasks            │
+        ▼                       ▼                            │
+[ sysop_orchestrator ]     [ backup_engine.py ]              │
+│       │                       │                            │ Read Data
+│       │ Full Pipeline         │ LVM Snapshot & Rsync       │ (logs, metrics,
+│       ▼                       ▼                            │  backup history)
+│ [ Target Nodes ]        [ Target Nodes ]                   │
+│       │                       │                            │
+│       │ Insert Data           │ Backup History             │
+│       └───────────┬───────────┘                            │
+│                   ▼                                        │
+│          [ SQLite Database ] ──────────────────────────────┘
+│           (sysop_engine.db)
+▼
+[ Telegram Bot ] ───► "SSH BRUTE-FORCE Detected! IP: 192.168.x.x"
 ```
 ## **🧰 Tech Stack & Tooling**
 
