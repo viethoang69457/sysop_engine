@@ -144,21 +144,28 @@ mkdir -p ~/sysop_engine/templates
 
 Place index.html inside ~/sysop_engine/templates/:
 ~/sysop_engine/templates/index.html
-Place all 8 module files into ~/sysop_engine/modules/
-~/sysop_engine/modules/
-├── api_gateway.py
-├── backup_engine.py
-├── data_ingestor.py
-├── database.py
-├── log_aggregator.py
-├── metrics_collector.py
-├── notifier.py
-└── sysop_orchestrator.py
+Place all all modules files into ~/sysop_engine/modules/
+```text
+~/sysop_engine/
+├── templates/
+│   └── index.html
+└── modules/
+    ├── .env
+    ├── api_gateway.py
+    ├── backup_engine.py
+    ├── data_ingestor.py
+    ├── database.py
+    ├── log_aggregator.py
+    ├── metrics_collector.py
+    ├── net_probe.c
+    ├── notifier.py
+    └── sysop_orchestrator.py
+```
 
 # Install GCC build tools
 sudo apt install -y build-essential
 
-# Place net_probe.c at ~/sysop_engine/ and compile
+# Place net_probe.c at ~/sysop_engine/modules and compile
 gcc -O2 -o ~/sysop_engine/netprobe ~/sysop_engine/net_probe.c
 chmod +x ~/sysop_engine/netprobe
 
@@ -184,9 +191,15 @@ After=network.target
 Type=simple
 User='$USER'
 WorkingDirectory=/home/'$USER'/sysop_engine
-EnvironmentFile=/home/'$USER'/sysop_engine/.env
+EnvironmentFile=/home/'$USER'/sysop_engine/modules/.env
 ExecStart=/home/'$USER'/sysop_engine/venv/bin/python3 -m modules.api_gateway
-Restart=always
+Restart=
+
+https://github.com/user-attachments/assets/e4ebac9d-6e34-4753-9aea-03de7285b368
+
+
+
+always
 RestartSec=5
 
 [Install]
@@ -225,9 +238,17 @@ sudo systemctl status sysop.service
 | **GET** | `/api/v1/security/alerts` | Fetches recent security events (last 20 logs) | None | JSON Array (Security event logs) |
 | **GET** | `/api/v1/backups/history` | Fetches LVM backup history (last 10 records) | None | JSON Array (Backup execution logs) |
 
-
+## VIDEO DEMO 
 
 https://github.com/user-attachments/assets/5b21fab2-c54e-4a13-8635-fe5205354250
+
+
+
+https://github.com/user-attachments/assets/096f5d6b-e35a-4dcb-9dfb-8de4adc580f0
+
+
+https://github.com/user-attachments/assets/4f3b0aba-e9e9-43fe-8c7f-d54799883b00
+
 
 
 
