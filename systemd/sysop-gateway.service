@@ -1,16 +1,16 @@
 [Unit]
 Description=SysOps Engine FastAPI Web Dashboard & REST Gateway
-After=network.target sqlite3.service
+After=network.target
 
 [Service]
 Type=simple
 User=dgna69
+Group=dgna69
 WorkingDirectory=/home/dgna69/sysop_engine/modules
-# Chạy uvicorn chuẩn Production với 2 workers, loại bỏ --reload để tối ưu CPU/RAM
-ExecStart=/usr/bin/python3 -m uvicorn api_gateway:app --host 0.0.0.0 --port 8000 --workers 2
+EnvironmentFile=/home/dgna69/sysop_engine/modules/.env
+ExecStart=/home/dgna69/sysop_engine/venv/bin/uvicorn api_gateway:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
-RestartSec=3s
-# Quản lý tài nguyên và File Limit cho Process
+RestartSec=3
 LimitNOFILE=65536
 
 [Install]
