@@ -105,10 +105,98 @@ The system orchestrates data retrieval and execution through an asynchronous API
 - Disaster Recovery: LVM (Logical Volume Manager), Rsync
 - UI & Notifications: Chart.js, Telegram Bot API
 
-## 🔒 Security & Data Lifecycle
+## **🔒 Security & Data Lifecycle**
 
 - Zero Hardcoded Secrets — Sensitive credentials (Telegram Bot tokens, SSH credentials) are strictly managed via environment variables (`.env`).
 - Runtime Data Isolation — All dynamic runtime files (`sysop-engine.db`, `*.json`) and backup artifacts are isolated via `.gitignore` to prevent credential and state leakage.
+
+## **⚙️ Deployment Pipeline**
+
+---
+
+### Step 1: Infrastructure & SSH Security Setup
+
+1. **Network Connectivity Requirements (Control Node & Target Node):**
+   * Both nodes must be running **Ubuntu** and able to **ping each other**.
+   * Configure NAT interface for Internet access to update packages and send Telegram notifications.
+   ```bash
+   ping -c 3 <IP_TARGET_NODE>
+   ping -c 3 8.8.8.8
+
+# Install OpenSSH Server
+sudo apt update && sudo apt install -y openssh-server
+
+# Generate SSH Key and copy public key to Target Node
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+ssh-copy-id <user>@<IP_TARGET_NODE>
+
+# Disable direct root login via SSH
+sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sudo systemctl restart sshd
+
+**Step 2: Directory Structure & Source Code Placement**
+mkdir -p ~/sysop_engine/modules
+mkdir -p ~/sysop_engine/templates
+
+Place index.html inside ~/sysop_engine/templates/:
+~/sysop_engine/templates/index.html
+Place all 8 module files into ~/sysop_engine/modules/
+~/sysop_engine/modules/
+├── api_gateway.py
+├── backup_engine.py
+├── data_ingestor.py
+├── database.py
+├── log_aggregator.py
+├── metrics_collector.py
+├── notifier.py
+└── sysop_orchestrator.py
+
+# Install GCC build tools
+sudo apt install -y build-essential
+
+# Place net_probe.c at ~/sysop_engine/ and compile
+gcc -O2 -o ~/sysop_engine/netprobe ~/sysop_engine/net_probe.c
+chmod +x ~/sysop_engine/netprobe
+
+**Step 3: Environment Setup & Telegram Token**
+1.Install Python Libraries (Virtualenv recommended):
+cd ~/sysop_engine
+python3 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn requests python-dotenv
+
+2.Configure Telegram Environment Variables (.env):
+echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" > ~/sysop_engine/.env
+echo "TELEGRAM_CHAT_ID=your_chat_id_here" >> ~/sysop_engine/.env
+
+Step 4: Systemd Service Configuration & Activation (sysop.service)
+1.Create Systemd Service configuration at /etc/systemd/system/sysop.service:
+sudo bash -c 'cat <<EOF> /etc/systemd/system/sysop.service
+[Unit]
+Description=SysOps Engine Monitoring & Core Daemon
+After=network.target
+
+[Service]
+Type=simple
+User='$USER'
+WorkingDirectory=/home/'$USER'/sysop_engine
+EnvironmentFile=/home/'$USER'/sysop_engine/.env
+ExecStart=/home/'$USER'/sysop_engine/venv/bin/python3 -m modules.api_gateway
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+
+2. Enable and start Daemon Service:
+sudo systemctl daemon-reload
+sudo systemctl enable --now sysop.service
+sudo systemctl status sysop.service
+🎉 SysOps Engine deployment completed successfully!
+
+
+
 
 
 
